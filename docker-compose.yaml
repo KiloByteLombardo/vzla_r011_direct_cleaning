@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: vzla-r011-direct-cleaning
+    ports:
+      - "8750:8750"
+    volumes:
+      # Montar credentials.json para desarrollo local
+      - ./credentials.json:/app/credentials.json:ro
+      # Montar el código fuente para desarrollo (opcional, para hot-reload)
+      - ./src:/app/src
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
+      - PORT=8750
+    restart: unless-stopped
+

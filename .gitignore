@@ -144,6 +144,9 @@ ENV/
 env.bak/
 venv.bak/
 
+# Google Cloud Credentials
+credentials.json
+
 # Spyder project settings
 .spyderproject
 .spyproject
@@ -205,3 +208,14 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Resultados
+resultados/
+resultados
+
+.env.example
+deploy.ps1
+deploy-r011.ps1
+deploy-r011.sh
+deploy-r011.bat
+deploy-r011.sh
