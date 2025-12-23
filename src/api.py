@@ -384,6 +384,19 @@ def process_file():
             print("[PROCESS] No old Grist data available. Comentarios columns initialized as empty")
             sys.stdout.flush()
         
+        # Agregar columnas adicionales requeridas por BigQuery
+        # Estas columnas se agregan después del procesamiento y antes de subir a Grist/BigQuery
+        if 'Comentario Operación' not in df_processed.columns:
+            df_processed['Comentario Operación'] = ''
+            print("[PROCESS] Added 'Comentario Operación' column (empty)")
+            sys.stdout.flush()
+        
+        if 'Fecha Reporte CXP' not in df_processed.columns:
+            # Inicializar como fecha vacía (None o NaT)
+            df_processed['Fecha Reporte CXP'] = pd.NaT
+            print("[PROCESS] Added 'Fecha Reporte CXP' column (empty)")
+            sys.stdout.flush()
+        
         # Convertir el DataFrame procesado (con comentarios) a Excel
         print("[PROCESS] Converting processed DataFrame to Excel...")
         sys.stdout.flush()
@@ -1101,13 +1114,15 @@ def process_grist(df_processed, credentials=None, project_id=None, df_old_grist=
             
             if bq_dataset_id and bq_table_id:
                 # Usar WRITE_APPEND para agregar al historial
+                # Pasar df_processed como referencia para convertir nombres de columnas normalizados a originales
                 success = venezuela.upload_to_bigquery(
                     df_old_grist, 
                     credentials, 
                     project_id, 
                     bq_dataset_id, 
                     bq_table_id,
-                    write_disposition='WRITE_APPEND'
+                    write_disposition='WRITE_APPEND',
+                    df_reference=df_processed  # DataFrame de referencia con nombres originales
                 )
                 
                 if success:

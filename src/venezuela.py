@@ -2032,11 +2032,201 @@ def process_dataframe(df: pd.DataFrame, credentials=None) -> pd.DataFrame:
     return df_processed
 
 
+def denormalize_column_name_from_grist(normalized_name: str, original_columns: list) -> str:
+    """
+    Revierte la normalización de un nombre de columna de Grist al nombre original.
+    
+    Busca en la lista de columnas originales cuál corresponde al nombre normalizado.
+    
+    Args:
+        normalized_name: Nombre de columna normalizado (de Grist)
+        original_columns: Lista de nombres de columnas originales
+        
+    Returns:
+        str: Nombre de columna original, o el mismo si no se encuentra
+    """
+    # Importar la función de normalización para comparar
+    import sys
+    import os
+    
+    # Buscar la función normalize_column_name_for_grist en api.py
+    # Como no podemos importarla directamente, vamos a replicar la lógica de comparación
+    import unicodedata
+    import re
+    
+    # Normalizar cada columna original y comparar
+    for original_col in original_columns:
+        # Aplicar la misma normalización que se usa en api.py
+        col = str(original_col).strip()
+        if not col:
+            continue
+        
+        # Normalizar igual que normalize_column_name_for_grist
+        # 1. Quitar acentos
+        col_normalized = unicodedata.normalize('NFD', col)
+        col_normalized = ''.join(c for c in col_normalized if unicodedata.category(c) != 'Mn')
+        
+        # 2. Reemplazar espacios con guiones bajos
+        col_normalized = col_normalized.replace(' ', '_')
+        
+        # 3. Reemplazar guiones con guiones bajos
+        col_normalized = col_normalized.replace('-', '_')
+        
+        # 4. Si empieza con número o símbolo especial, agregar "c"
+        if col_normalized and (col_normalized[0].isdigit() or col_normalized[0] in ['+', '-', '_', '.']):
+            col_normalized = 'c' + col_normalized
+        
+        # 5. Limpiar caracteres especiales
+        col_normalized = re.sub(r'_+', '_', col_normalized)
+        col_normalized = re.sub(r'[^a-zA-Z0-9_]', '', col_normalized)
+        
+        # 6. Eliminar guiones bajos al inicio y final
+        col_normalized = col_normalized.strip('_')
+        
+        # Comparar con el nombre normalizado recibido
+        if col_normalized == normalized_name:
+            return original_col
+    
+    # Si no se encuentra, devolver el mismo nombre
+    print(f"[VENZUELA] Warning: Could not find original column name for '{normalized_name}'. Using as-is.")
+    sys.stdout.flush()
+    return normalized_name
+
+
+def get_bigquery_column_mapping() -> dict:
+    """
+    Retorna el mapeo de nombres de columnas del DataFrame a los nombres del esquema de BigQuery.
+    
+    Returns:
+        dict: Diccionario con mapeo {nombre_dataframe: nombre_bigquery}
+    """
+    return {
+        # Columnas originales del archivo R011
+        'Fecha Recepción': 'vzla_retenida_fecha_recepcion',
+        'Centro de Costo': 'vzla_retenida_centro_costo',
+        'Tienda': 'vzla_retenida_tienda',
+        'Proveedor': 'vzla_retenida_proveedor',
+        'Sucursal': 'vzla_retenida_sucursal',
+        'Número Factura': 'vzla_retenida_numero_factura',
+        'Tipo Documento': 'vzla_retenida_documento',
+        'Estado': 'vzla_retenida_estado',
+        'Orden Compra': 'vzla_retenida_orden_compra',
+        'Fecha Factura': 'vzla_retenida_fecha_factura',
+        'SubTotal': 'vzla_retenida_subtotal',
+        'Valor Impuesto': 'vzla_retenida_valor_impuesto',
+        'Total con Impuesto': 'vzla_retenida_total_impuesto',
+        'Costo Recepcion': 'vzla_retenida_costo_recepcion',
+        'Diferencia': 'vzla_retenida_diferencia',
+        'Unidades por Factura': 'vzla_retenida_unidades_factura',
+        'Unidades Recibidas': 'vzla_retenida_unidades_recibida',
+        'Diferencias': 'vzla_retenida_diferencias',
+        'Factura Con Faltante': 'vzla_retenida_factura_faltante',
+        'Término de Pago': 'vzla_retenida_termino_pago',
+        'Fecha Vencimiento': 'vzla_retenida_fecha_vencimiento',
+        'Indicador RTV': 'vzla_retenida_indicador_rtv',
+        'OrdenRTV': 'vzla_retenida_orden_rtv',
+        'Consignación': 'vzla_retenida_consignacion',
+        'Origen Documento': 'vzla_retenida_origen_documento',
+        'Razón REIM': 'vzla_retenida_razon_reim',
+        'Fecha Creación': 'vzla_retenida_fecha_creacion',
+        'Fecha Modificación': 'vzla_retenida_fecha_modificacion',
+        'Fecha Aprobación': 'vzla_retenida_fecha_aprobacion',
+        'Fecha Publicación': 'vzla_retenida_fecha_publicacion',
+        'Creado Por': 'vzla_retenida_creado_por',
+        'Modificado Por': 'vzla_retenida_modificado_por',
+        
+        # Columnas creadas durante el procesamiento
+        'Unidad de Negocio': 'vzla_retenida_unidad_negocio',
+        'Tipo de Proveedor': 'vzla_retenida_tipo_proveedor',
+        'Motivo de Retención': 'vzla_retenida_motivo_retencion',
+        'Comentario': 'vzla_retenida_comentarios',
+        'Especialista Comercial': 'vzla_retenida_especialista_comercial',
+        'Comentario CXP': 'vzla_retenida_comentario_cxp',
+        'Comentario Operación': 'vzla_retenida_comentario_operacion',
+        'Fecha Reporte CXP': 'vzla_retenida_fecha_reporte_cxp',
+        'Validacion de OC': 'vzla_retenida_validacion_oc',
+        'Diferencia Real': 'vzla_retenida_diferencia_real',
+        'Valor Real de Unidades': 'vzla_retenida_valor_real_unidades',
+        'Diferencia Unidades': 'vzla_retenida_diferencia_unidades',
+        'Valor Real de Subtotal': 'vzla_retenida_valor_real_subtotal',
+        'Diferencia Costo': 'vzla_retenida_diferencia_costo',
+        'Area': 'vzla_retenida_area',
+        'Gerente de Area': 'vzla_retenida_gerente_area',
+        'Rango de fecha': 'vzla_retenida_rango_fecha',
+        '0-30': 'vzla_retenida_0_30',
+        '30-60': 'vzla_retenida_30_60',
+        '60-90': 'vzla_retenida_60_90',
+        '90-120': 'vzla_retenida_90_120',
+        '+120': 'vzla_retenida_mas_120',
+    }
+
+
+def convert_grist_columns_to_bigquery_schema(df_grist: pd.DataFrame, df_reference: pd.DataFrame) -> pd.DataFrame:
+    """
+    Convierte los nombres de columnas del DataFrame de Grist (normalizados) 
+    a los nombres del esquema de BigQuery.
+    
+    Primero convierte de Grist a nombres originales, luego a esquema BigQuery.
+    
+    Args:
+        df_grist: DataFrame de Grist con columnas normalizadas
+        df_reference: DataFrame de referencia con los nombres de columnas originales
+        
+    Returns:
+        pd.DataFrame: DataFrame con columnas renombradas al esquema de BigQuery
+    """
+    df_converted = df_grist.copy()
+    
+    # Paso 1: Convertir nombres normalizados de Grist a nombres originales
+    column_mapping_grist_to_original = {}
+    original_columns = list(df_reference.columns)
+    
+    for normalized_col in df_grist.columns:
+        original_col = denormalize_column_name_from_grist(normalized_col, original_columns)
+        if original_col != normalized_col:
+            column_mapping_grist_to_original[normalized_col] = original_col
+    
+    # Renombrar de Grist a original
+    if column_mapping_grist_to_original:
+        df_converted = df_converted.rename(columns=column_mapping_grist_to_original)
+        print(f"[VENZUELA] Step 1: Converted {len(column_mapping_grist_to_original)} column names from Grist format to original")
+        sys.stdout.flush()
+    
+    # Paso 2: Convertir nombres originales a esquema BigQuery usando el mapeo específico
+    bq_mapping = get_bigquery_column_mapping()
+    column_mapping_to_bq = {}
+    
+    for original_col in df_converted.columns:
+        # Buscar en el mapeo específico
+        if original_col in bq_mapping:
+            column_mapping_to_bq[original_col] = bq_mapping[original_col]
+        else:
+            # Si no está en el mapeo, mantener el nombre original (o usar conversión automática como fallback)
+            print(f"[VENZUELA] Warning: Column '{original_col}' not found in BigQuery mapping. Keeping original name.")
+            sys.stdout.flush()
+    
+    # Renombrar a esquema BigQuery
+    if column_mapping_to_bq:
+        df_converted = df_converted.rename(columns=column_mapping_to_bq)
+        print(f"[VENZUELA] Step 2: Converted {len(column_mapping_to_bq)} column names to BigQuery schema format")
+        print(f"[VENZUELA] Column mapping examples: {dict(list(column_mapping_to_bq.items())[:5])}")
+        sys.stdout.flush()
+    else:
+        print(f"[VENZUELA] Warning: No column name conversions to BigQuery schema found.")
+        sys.stdout.flush()
+    
+    return df_converted
+
+
 def upload_to_bigquery(df: pd.DataFrame, credentials, project_id: str, 
                        dataset_id: str, table_id: str, 
-                       write_disposition: str = 'WRITE_TRUNCATE') -> bool:
+                       write_disposition: str = 'WRITE_TRUNCATE',
+                       df_reference: pd.DataFrame = None) -> bool:
     """
     Sube un DataFrame a BigQuery.
+    
+    Convierte automáticamente los nombres de columnas al esquema de BigQuery
+    usando el mapeo específico y agrega el timestamp.
     
     Args:
         df: DataFrame a subir
@@ -2045,19 +2235,319 @@ def upload_to_bigquery(df: pd.DataFrame, credentials, project_id: str,
         dataset_id: ID del dataset en BigQuery
         table_id: ID de la tabla en BigQuery
         write_disposition: Modo de escritura ('WRITE_TRUNCATE', 'WRITE_APPEND', 'WRITE_EMPTY')
+        df_reference: DataFrame de referencia con nombres de columnas originales (opcional, 
+                     para convertir columnas normalizadas de Grist antes de convertir a BigQuery)
         
     Returns:
         bool: True si fue exitoso, False en caso contrario
     """
     try:
+        # Si se proporciona un DataFrame de referencia, convertir primero de Grist a original
+        if df_reference is not None:
+            print(f"[VENZUELA] Converting column names from Grist format to BigQuery schema...")
+            sys.stdout.flush()
+            df = convert_grist_columns_to_bigquery_schema(df, df_reference)
+        else:
+            # Si no hay referencia, asumimos que las columnas están en formato original
+            # y las convertimos directamente al esquema de BigQuery usando el mapeo específico
+            print(f"[VENZUELA] Converting column names to BigQuery schema format...")
+            sys.stdout.flush()
+            bq_mapping = get_bigquery_column_mapping()
+            column_mapping_to_bq = {}
+            
+            for original_col in df.columns:
+                # Buscar en el mapeo específico
+                if original_col in bq_mapping:
+                    column_mapping_to_bq[original_col] = bq_mapping[original_col]
+            
+            if column_mapping_to_bq:
+                df = df.rename(columns=column_mapping_to_bq)
+                print(f"[VENZUELA] Converted {len(column_mapping_to_bq)} column names to BigQuery schema")
+                print(f"[VENZUELA] Column mapping examples: {dict(list(column_mapping_to_bq.items())[:5])}")
+                sys.stdout.flush()
+        
+        # Agregar columnas faltantes requeridas por el esquema de BigQuery
+        if 'vzla_retenida_comentario_operacion' not in df.columns:
+            df['vzla_retenida_comentario_operacion'] = ''
+            print(f"[VENZUELA] Added missing column: vzla_retenida_comentario_operacion")
+            sys.stdout.flush()
+        
+        if 'vzla_retenida_fecha_reporte_cxp' not in df.columns:
+            df['vzla_retenida_fecha_reporte_cxp'] = pd.NaT
+            print(f"[VENZUELA] Added missing column: vzla_retenida_fecha_reporte_cxp")
+            sys.stdout.flush()
+        
+        # Agregar columna de timestamp si no existe
+        if 'vzla_retenida_timestamp' not in df.columns:
+            from datetime import datetime
+            timestamp_now = datetime.now()
+            df['vzla_retenida_timestamp'] = timestamp_now
+            print(f"[VENZUELA] Added timestamp column: {timestamp_now}")
+            sys.stdout.flush()
+        
+        # Convertir columnas de fecha a formato correcto para BigQuery
+        # Lista de columnas de fecha según el esquema de BigQuery (tipo DATE)
+        date_columns = [
+            'vzla_retenida_fecha_recepcion',
+            'vzla_retenida_fecha_factura',
+            'vzla_retenida_fecha_vencimiento',
+            'vzla_retenida_fecha_creacion',
+            'vzla_retenida_fecha_reporte_cxp'
+        ]
+        
+        # Columnas STRING que contienen fechas (deben ser strings, no dates)
+        string_date_columns = [
+            'vzla_retenida_fecha_modificacion',
+            'vzla_retenida_fecha_aprobacion',
+            'vzla_retenida_fecha_publicacion'
+        ]
+        
+        # Timestamp column (datetime, no date)
+        timestamp_columns = [
+            'vzla_retenida_timestamp'
+        ]
+        
+        print(f"[VENZUELA] Converting date and timestamp columns to proper format...")
+        sys.stdout.flush()
+        
+        for col in date_columns:
+            if col in df.columns:
+                try:
+                    # Si la columna es numérica (int64), determinar el formato
+                    if pd.api.types.is_integer_dtype(df[col]) or pd.api.types.is_float_dtype(df[col]):
+                        from datetime import datetime, timedelta
+                        
+                        # Obtener una muestra de valores no nulos para determinar el formato
+                        sample_values = df[col].dropna()
+                        if len(sample_values) > 0:
+                            sample_value = abs(float(sample_values.iloc[0]))
+                            
+                            # Si el valor es muy grande (> 1000000), probablemente es un timestamp Unix (segundos)
+                            # Si es pequeño (< 100000), probablemente es días de Excel
+                            if sample_value > 1000000:
+                                # Es un timestamp Unix (segundos desde 1970-01-01)
+                                df[col] = pd.to_datetime(df[col], unit='s', errors='coerce')
+                                print(f"[VENZUELA] Converted {col} from Unix timestamp (seconds) to date")
+                            elif sample_value < 100000:
+                                # Es días de Excel (días desde 1899-12-30)
+                                excel_epoch = datetime(1899, 12, 30)
+                                df[col] = df[col].apply(
+                                    lambda x: excel_epoch + timedelta(days=int(x)) if pd.notna(x) and not pd.isna(x) else pd.NaT
+                                )
+                                print(f"[VENZUELA] Converted {col} from Excel numeric (days) to date")
+                            else:
+                                # Valor intermedio, intentar primero como timestamp Unix
+                                try:
+                                    df[col] = pd.to_datetime(df[col], unit='s', errors='coerce')
+                                    print(f"[VENZUELA] Converted {col} from Unix timestamp (seconds) to date")
+                                except:
+                                    excel_epoch = datetime(1899, 12, 30)
+                                    df[col] = df[col].apply(
+                                        lambda x: excel_epoch + timedelta(days=int(x)) if pd.notna(x) and not pd.isna(x) else pd.NaT
+                                    )
+                                    print(f"[VENZUELA] Converted {col} from Excel numeric (days) to date")
+                        else:
+                            # Si todos los valores son nulos, mantener como NaT
+                            df[col] = pd.NaT
+                            print(f"[VENZUELA] Column {col} has no valid values, set to NaT")
+                    elif df[col].dtype == 'object':
+                        # Intentar convertir desde string
+                        df[col] = pd.to_datetime(df[col], errors='coerce')
+                        print(f"[VENZUELA] Converted {col} from string to date")
+                    elif not pd.api.types.is_datetime64_any_dtype(df[col]):
+                        # Si no es datetime, intentar convertir
+                        df[col] = pd.to_datetime(df[col], errors='coerce')
+                        print(f"[VENZUELA] Converted {col} to date format")
+                    # Si ya es datetime, mantenerlo
+                    # Los NaT se manejarán automáticamente por pandas al subir a BigQuery
+                    sys.stdout.flush()
+                except Exception as e:
+                    print(f"[VENZUELA] Warning: Could not convert {col} to date: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
+                    sys.stdout.flush()
+        
+        for col in timestamp_columns:
+            if col in df.columns:
+                try:
+                    # Asegurar que sea datetime
+                    if not pd.api.types.is_datetime64_any_dtype(df[col]):
+                        df[col] = pd.to_datetime(df[col], errors='coerce')
+                    print(f"[VENZUELA] Ensured {col} is datetime format")
+                    sys.stdout.flush()
+                except Exception as e:
+                    print(f"[VENZUELA] Warning: Could not convert {col} to datetime: {str(e)}")
+                    sys.stdout.flush()
+        
+        # Convertir columnas STRING (fechas que deben ser strings en BigQuery)
+        for col in string_date_columns:
+            if col in df.columns:
+                try:
+                    # Convertir a string, manteniendo el formato original si es posible
+                    if pd.api.types.is_datetime64_any_dtype(df[col]):
+                        # Si es datetime, convertir a string con formato YYYY-MM-DD
+                        df[col] = df[col].dt.strftime('%Y-%m-%d').where(pd.notna(df[col]), None)
+                    elif pd.api.types.is_integer_dtype(df[col]) or pd.api.types.is_float_dtype(df[col]):
+                        # Si es numérico, podría ser timestamp Unix o días de Excel
+                        from datetime import datetime, timedelta
+                        sample_values = df[col].dropna()
+                        if len(sample_values) > 0:
+                            sample_value = abs(float(sample_values.iloc[0]))
+                            if sample_value > 1000000:
+                                # Es un timestamp Unix (segundos desde 1970-01-01)
+                                df[col] = pd.to_datetime(df[col], unit='s', errors='coerce').dt.strftime('%Y-%m-%d').where(pd.notna(df[col]), None)
+                            elif sample_value < 100000:
+                                # Es días de Excel (días desde 1899-12-30)
+                                excel_epoch = datetime(1899, 12, 30)
+                                df[col] = df[col].apply(
+                                    lambda x: (excel_epoch + timedelta(days=int(x))).strftime('%Y-%m-%d') if pd.notna(x) and not pd.isna(x) else None
+                                )
+                            else:
+                                # Intentar primero como timestamp Unix
+                                try:
+                                    df[col] = pd.to_datetime(df[col], unit='s', errors='coerce').dt.strftime('%Y-%m-%d').where(pd.notna(df[col]), None)
+                                except:
+                                    excel_epoch = datetime(1899, 12, 30)
+                                    df[col] = df[col].apply(
+                                        lambda x: (excel_epoch + timedelta(days=int(x))).strftime('%Y-%m-%d') if pd.notna(x) and not pd.isna(x) else None
+                                    )
+                        else:
+                            df[col] = None
+                    else:
+                        # Si ya es string u otro tipo, convertir a string
+                        df[col] = df[col].astype(str).where(pd.notna(df[col]), None)
+                    # Limpiar valores 'nan', 'None', etc.
+                    df[col] = df[col].replace('nan', None)
+                    df[col] = df[col].replace('NaN', None)
+                    df[col] = df[col].replace('None', None)
+                    df[col] = df[col].replace('<NA>', None)
+                    df[col] = df[col].replace('NaT', None)
+                    print(f"[VENZUELA] Converted {col} to string format")
+                    sys.stdout.flush()
+                except Exception as e:
+                    print(f"[VENZUELA] Warning: Could not convert {col} to string: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
+                    sys.stdout.flush()
+        
+        # Convertir columnas STRING que pueden venir como números
+        # Estas columnas deben ser STRING en BigQuery pero pueden venir como int64/float64
+        string_columns_that_may_be_numeric = [
+            'vzla_retenida_centro_costo',  # Puede venir como int64 pero debe ser STRING
+            'vzla_retenida_orden_compra',   # Puede venir como int64 pero debe ser STRING
+            'vzla_retenida_numero_factura', # Puede venir como int64 pero debe ser STRING
+        ]
+        
+        print(f"[VENZUELA] Converting numeric columns to STRING format...")
+        sys.stdout.flush()
+        for col in string_columns_that_may_be_numeric:
+            if col in df.columns:
+                try:
+                    # Si es numérico, convertir a string
+                    if pd.api.types.is_integer_dtype(df[col]) or pd.api.types.is_float_dtype(df[col]):
+                        # Convertir a Int64 primero para manejar NaN, luego a string
+                        df[col] = df[col].astype('Int64').astype(str).where(pd.notna(df[col]), None)
+                        # Reemplazar 'nan' y 'None' strings
+                        df[col] = df[col].replace('nan', None)
+                        df[col] = df[col].replace('NaN', None)
+                        df[col] = df[col].replace('None', None)
+                        df[col] = df[col].replace('<NA>', None)
+                        print(f"[VENZUELA] Converted {col} from numeric to STRING")
+                        sys.stdout.flush()
+                except Exception as e:
+                    print(f"[VENZUELA] Warning: Could not convert {col} to STRING: {str(e)}")
+                    sys.stdout.flush()
+        
+        # Crear esquema específico para BigQuery según los tipos de datos proporcionados
+        from google.cloud.bigquery import SchemaField
+        
+        schema = [
+            SchemaField('vzla_retenida_fecha_recepcion', 'DATE', mode='NULLABLE'),
+            SchemaField('vzla_retenida_centro_costo', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_tienda', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_proveedor', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_sucursal', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_numero_factura', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_documento', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_estado', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_orden_compra', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_fecha_factura', 'DATE', mode='NULLABLE'),
+            SchemaField('vzla_retenida_subtotal', 'FLOAT', mode='NULLABLE'),
+            SchemaField('vzla_retenida_valor_impuesto', 'FLOAT', mode='NULLABLE'),
+            SchemaField('vzla_retenida_total_impuesto', 'FLOAT', mode='NULLABLE'),
+            SchemaField('vzla_retenida_costo_recepcion', 'FLOAT', mode='NULLABLE'),
+            SchemaField('vzla_retenida_diferencia', 'FLOAT', mode='NULLABLE'),
+            SchemaField('vzla_retenida_unidades_factura', 'INTEGER', mode='NULLABLE'),
+            SchemaField('vzla_retenida_unidades_recibida', 'INTEGER', mode='NULLABLE'),
+            SchemaField('vzla_retenida_diferencias', 'INTEGER', mode='NULLABLE'),
+            SchemaField('vzla_retenida_factura_faltante', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_termino_pago', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_fecha_vencimiento', 'DATE', mode='NULLABLE'),
+            SchemaField('vzla_retenida_indicador_rtv', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_orden_rtv', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_consignacion', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_origen_documento', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_razon_reim', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_fecha_creacion', 'DATE', mode='NULLABLE'),
+            SchemaField('vzla_retenida_fecha_modificacion', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_fecha_aprobacion', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_fecha_publicacion', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_creado_por', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_modificado_por', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_unidad_negocio', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_tipo_proveedor', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_motivo_retencion', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_comentarios', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_especialista_comercial', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_fecha_reporte_cxp', 'DATE', mode='NULLABLE'),
+            SchemaField('vzla_retenida_comentario_cxp', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_comentario_operacion', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_validacion_oc', 'INTEGER', mode='NULLABLE'),
+            SchemaField('vzla_retenida_diferencia_real', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_valor_real_unidades', 'INTEGER', mode='NULLABLE'),
+            SchemaField('vzla_retenida_diferencia_unidades', 'INTEGER', mode='NULLABLE'),
+            SchemaField('vzla_retenida_valor_real_subtotal', 'FLOAT', mode='NULLABLE'),
+            SchemaField('vzla_retenida_diferencia_costo', 'FLOAT', mode='NULLABLE'),
+            SchemaField('vzla_retenida_area', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_gerente_area', 'STRING', mode='NULLABLE'),
+            SchemaField('vzla_retenida_rango_fecha', 'INTEGER', mode='NULLABLE'),
+            SchemaField('vzla_retenida_0_30', 'INTEGER', mode='NULLABLE'),
+            SchemaField('vzla_retenida_30_60', 'INTEGER', mode='NULLABLE'),
+            SchemaField('vzla_retenida_60_90', 'INTEGER', mode='NULLABLE'),
+            SchemaField('vzla_retenida_90_120', 'INTEGER', mode='NULLABLE'),
+            SchemaField('vzla_retenida_mas_120', 'INTEGER', mode='NULLABLE'),
+            SchemaField('vzla_retenida_timestamp', 'TIMESTAMP', mode='NULLABLE'),
+        ]
+        
+        # Debug: Mostrar tipos de datos antes de subir
+        print(f"[VENZUELA] ========== BigQuery Upload Debug Info ==========")
+        print(f"[VENZUELA] DataFrame shape: {df.shape}")
+        print(f"[VENZUELA] Total columns: {len(df.columns)}")
+        print(f"[VENZUELA] Expected schema columns: {len(schema)}")
+        print(f"[VENZUELA]")
+        print(f"[VENZUELA] Column data types:")
+        for col in df.columns:
+            dtype = df[col].dtype
+            non_null_count = df[col].notna().sum()
+            null_count = df[col].isna().sum()
+            sample_value = df[col].iloc[0] if len(df) > 0 and pd.notna(df[col].iloc[0]) else None
+            print(f"[VENZUELA]   - {col}: {dtype} (non-null: {non_null_count}, null: {null_count}, sample: {sample_value})")
+        print(f"[VENZUELA]")
+        print(f"[VENZUELA] Expected schema types:")
+        for field in schema:
+            print(f"[VENZUELA]   - {field.name}: {field.field_type} ({field.mode})")
+        print(f"[VENZUELA] =================================================")
+        sys.stdout.flush()
+        
         bigquery_client = bigquery.Client(credentials=credentials, project=project_id)
         table_ref = bigquery_client.dataset(dataset_id).table(table_id)
         job_config = bigquery.LoadJobConfig(
             write_disposition=write_disposition,
-            autodetect=True
+            schema=schema
         )
         
         print(f"[VENZUELA] Uploading {len(df)} rows to BigQuery: {dataset_id}.{table_id}")
+        print(f"[VENZUELA] Columns to upload: {list(df.columns)[:10]}... (total: {len(df.columns)})")
         sys.stdout.flush()
         job = bigquery_client.load_table_from_dataframe(df, table_ref, job_config=job_config)
         job.result()  # Esperar a que termine el job
